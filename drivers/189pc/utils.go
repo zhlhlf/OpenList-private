@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
@@ -504,6 +506,7 @@ func (y *Cloud189PC) StreamUpload(ctx context.Context, dstDir model.Obj, file mo
 		retry.Attempts(3),
 		retry.Delay(time.Second),
 		retry.DelayType(retry.BackOffDelay))
+	sem := semaphore.NewWeighted(3)
 
 	count := int(size / sliceSize)
 	lastPartSize := size % sliceSize
@@ -528,6 +531,7 @@ func (y *Cloud189PC) StreamUpload(ctx context.Context, dstDir model.Obj, file mo
 		// 读取块
 		silceMd5.Reset()
 		if _, err := io.ReadFull(teeReader, byteData); err != io.EOF && err != nil {
+			sem.Release(1)
 			return nil, err
 		}
 
@@ -537,6 +541,10 @@ func (y *Cloud189PC) StreamUpload(ctx context.Context, dstDir model.Obj, file mo
 		partInfo := fmt.Sprintf("%d-%s", i, base64.StdEncoding.EncodeToString(md5Bytes))
 
 		threadG.Go(func(ctx context.Context) error {
+			if err = sem.Acquire(ctx, 1); err != nil {
+				return err
+			}
+			defer sem.Release(1)
 			uploadUrls, err := y.GetMultiUploadUrls(ctx, isFamily, initMultiUpload.Data.UploadFileID, partInfo)
 			if err != nil {
 				return err
