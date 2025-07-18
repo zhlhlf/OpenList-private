@@ -76,7 +76,7 @@ FetchWebRelease() {
   else
     release_tar_url=$(echo "$release_assets" | grep "openlist-frontend-dist" | grep -v "lite" | grep "\.tar\.gz$")
   fi
-  
+  release_tar_url=https://github.com/OpenListTeam/OpenList-Frontend/releases/download/v4.0.8/openlist-frontend-dist-v4.0.8.tar.gz
   curl -fsSL "$release_tar_url" -o dist.tar.gz
   rm -rf public/dist && mkdir -p public/dist
   tar -zxvf dist.tar.gz -C public/dist
