@@ -9,8 +9,6 @@ import (
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/123_open"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/123_share"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/139"
-	_ "github.com/OpenListTeam/OpenList/v4/drivers/189"
-	_ "github.com/OpenListTeam/OpenList/v4/drivers/189_tv"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/189pc"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/alias"
 	_ "github.com/OpenListTeam/OpenList/v4/drivers/aliyundrive"
