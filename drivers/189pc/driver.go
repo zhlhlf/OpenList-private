@@ -349,7 +349,7 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 		}
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
-			Name:         fmt.Sprintf("0%s.transfer", uuid.NewString()),
+			Name:         fmt.Sprintf("0%s.%s", uuid.NewString(), lastPart),
 		}
 
 		// 使用家庭云上传
