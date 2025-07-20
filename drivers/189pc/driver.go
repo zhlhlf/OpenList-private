@@ -340,8 +340,12 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 		transferDstDir := dstDir
 		dstDir = y.familyTransferFolder
 
-		// 使用临时文件名
+		// 使用临时文件名 不然一些特殊名字转存不了
 		srcName := stream.GetName()
+		lastPart := strings.Split(srcName, ".")[len(parts)-1]
+		if len(parts) == 1 {
+			lastPart = "zhlhlf" // 兜底
+		}
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
 			Name:         fmt.Sprintf("0%s.transfer", uuid.NewString()),
