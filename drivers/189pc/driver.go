@@ -333,7 +333,6 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 	if uploadMethod == "old" {
 		return y.OldUpload(ctx, dstDir, stream, up, isFamily, overwrite)
 	}
-
 	// 开启家庭云转存
 	if !isFamily && y.FamilyTransfer {
 		// 修改上传目标为家庭云文件夹
@@ -347,6 +346,7 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 		if len(parts) == 1 {
 			lastPart = "zhlhlf" // 兜底
 		}
+
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
 			Name:         fmt.Sprintf("0%s.%s", uuid.NewString(), lastPart),
@@ -391,14 +391,14 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 	}
 
 	switch uploadMethod {
-	case "rapid":
-		return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-	case "stream":
-		if stream.GetSize() == 0 {
+		case "rapid":
 			return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-		}
-		fallthrough
-	default:
-		return y.StreamUpload(ctx, dstDir, stream, up, isFamily, overwrite)
+		case "stream":
+			if stream.GetSize() == 0 {
+				return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
+			}
+			fallthrough
+		default:
+			return y.StreamUpload(ctx, dstDir, stream, up, isFamily, overwrite)
 	}
 }

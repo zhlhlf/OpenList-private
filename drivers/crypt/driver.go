@@ -253,7 +253,7 @@ func (d *Crypt) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 	if err != nil {
 		return nil, err
 	}
-	if(d.NotEncryptedFile) {
+	if(d.NoEncryptedFile) {
 		return remoteLink, nil
 	}
 
@@ -385,7 +385,7 @@ func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileSt
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-	if(d.NotEncryptedFile) {
+	if(d.NoEncryptedFile) {
 		streamOut := &stream.FileStream{
 		    Obj: &model.Object{
 		    	ID:       streamer.GetID(),

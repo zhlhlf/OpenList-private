@@ -475,7 +475,6 @@ func (y *Cloud189PC) refreshSession() (err error) {
 func (y *Cloud189PC) StreamUpload(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress, isFamily bool, overwrite bool) (model.Obj, error) {
 	size := file.GetSize()
 	sliceSize := partSize(size)
-
 	params := Params{
 		"parentFolderId": dstDir.GetID(),
 		"fileName":       url.QueryEscape(file.GetName()),
