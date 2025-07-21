@@ -255,7 +255,10 @@ func (d *Crypt) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 	if err != nil {
 		return nil, err
 	}
-
+	if(d.NotEncryptedFile) {
+		return remoteLink, nil
+	}
+	// fmt.Println("remoteLink", remoteLink)
 	rrf, err := stream.GetRangeReaderFromLink(remoteFile.GetSize(), remoteLink)
 	if err != nil {
 		_ = remoteLink.Close()
@@ -375,10 +378,33 @@ func (d *Crypt) Remove(ctx context.Context, obj model.Obj) error {
 
 func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileStreamer, up driver.UpdateProgress) error {
 	dstDirActualPath, err := d.getActualPathForRemote(dstDir.GetPath(), true)
+	fmt.Println("dstDirActualPath", dstDirActualPath)
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-
+	if(d.NotEncryptedFile) {
+		streamOut := &stream.FileStream{
+		    Obj: &model.Object{
+		    	ID:       streamer.GetID(),
+		    	Path:     streamer.GetPath(),
+		    	Name:     d.cipher.EncryptFileName(streamer.GetName()),
+		    	Size:     streamer.GetSize(),
+		    	Modified: streamer.ModTime(),
+		    	IsFolder: streamer.IsDir(),
+		    },
+		    Reader:            streamer,
+		    Mimetype:          "application/octet-stream",
+		    WebPutAsTask:      streamer.NeedStore(),
+		    ForceStreamUpload: true,
+		    Exist:             streamer.GetExist(),
+	    }
+		err = op.Put(ctx, d.remoteStorage, dstDirActualPath, streamOut, up, false)
+		if err != nil {
+			return err
+		} else {
+			return nil
+		}
+	}
 	// Encrypt the data into wrappedIn
 	wrappedIn, err := d.cipher.EncryptData(streamer)
 	if err != nil {
