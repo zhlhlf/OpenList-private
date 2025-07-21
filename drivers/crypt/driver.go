@@ -419,7 +419,7 @@ func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileSt
 		Obj: &model.Object{
 			ID:       streamer.GetID(),
 			Path:     streamer.GetPath(),
-			Name:     d.cipher.EncryptFileName(streamer.GetName()),
+			Name:     d.cipher.EncryptFileName(streamer.GetName()) + d.EncryptedSuffix,
 			Size:     d.cipher.EncryptedSize(streamer.GetSize()),
 			Modified: streamer.ModTime(),
 			IsFolder: streamer.IsDir(),
