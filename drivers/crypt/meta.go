@@ -10,9 +10,9 @@ type Addition struct {
 	//driver.RootPath
 	//driver.RootID
 	// define other
-
+	
+	DirNameEnc  bool `json:"directory_name_encryption"`
 	FileNameEnc string `json:"filename_encryption" type:"select" required:"true" options:"off,standard,obfuscate" default:"off"`
-	DirNameEnc  string `json:"directory_name_encryption" type:"select" required:"true" options:"false,true" default:"false"`
 	RemotePath  string `json:"remote_path" required:"true" help:"This is where the encrypted data stores"`
 
 	Password         string `json:"password" required:"true" confidential:"true" help:"the main password"`
