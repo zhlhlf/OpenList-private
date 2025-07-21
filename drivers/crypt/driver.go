@@ -370,7 +370,9 @@ func (d *Crypt) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 
 func (d *Crypt) Remove(ctx context.Context, obj model.Obj) error {
 	remoteActualPath, err := d.getActualPathForRemote(obj.GetPath(), obj.IsDir())
-	remoteActualPath = remoteActualPath + d.EncryptedSuffix
+	if !obj.IsDir() {
+		remoteActualPath = remoteActualPath + d.EncryptedSuffix
+	}
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
