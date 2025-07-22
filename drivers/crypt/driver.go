@@ -140,6 +140,12 @@ func (d *Crypt) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([
 			// 如果不进行加密文件 读取的大小应该不进行解密
 			if d.NoEncryptedFile {
 				size = obj.GetSize()
+			} else {
+				size, err = d.cipher.DecryptedSize(obj.GetSize())
+				if err != nil {
+					log.Warnf("DecryptedSize failed for %s ,will use original size, err:%s", path, err)
+					size = obj.GetSize()
+				}
 			}
 			originalName := obj.GetName()
 			name, err := d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
@@ -211,15 +217,17 @@ func (d *Crypt) Get(ctx context.Context, path string) (model.Obj, error) {
 	var size int64 = 0
 	name := ""
 	if !remoteObj.IsDir() {
-		size, err = d.cipher.DecryptedSize(remoteObj.GetSize())
 		// 如果不进行加密文件 读取的大小应该不进行解密
 		if d.NoEncryptedFile {
 			size = remoteObj.GetSize()
+		} else {
+			size, err = d.cipher.DecryptedSize(remoteObj.GetSize())
+			if err != nil {
+				log.Warnf("DecryptedSize failed for %s ,will use original size, err:%s", path, err)
+				size = remoteObj.GetSize()
+			}
 		}
-		if err != nil {
-			log.Warnf("DecryptedSize failed for %s ,will use original size, err:%s", path, err)
-			size = remoteObj.GetSize()
-		}
+
 		originalName := remoteObj.GetName()
 		name, err = d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
 
