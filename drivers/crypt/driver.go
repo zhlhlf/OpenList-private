@@ -141,10 +141,6 @@ func (d *Crypt) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([
 			if d.NoEncryptedFile {
 				size = obj.GetSize()
 			}
-			if err != nil {
-				//filter illegal files
-				continue
-			}
 			originalName := obj.GetName()
 			name, err := d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
 			if err != nil {
@@ -347,7 +343,6 @@ func (d *Crypt) Move(ctx context.Context, srcObj, dstDir model.Obj) error {
 	}
 	if !srcObj.IsDir() {
 		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
-		dstRemoteActualPath = dstRemoteActualPath + d.EncryptedSuffix
 	}
 	return op.Move(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 }
@@ -378,7 +373,6 @@ func (d *Crypt) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 	}
 	if !srcObj.IsDir() {
 		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
-		dstRemoteActualPath = dstRemoteActualPath + d.EncryptedSuffix
 	}
 	return op.Copy(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 
@@ -396,6 +390,7 @@ func (d *Crypt) Remove(ctx context.Context, obj model.Obj) error {
 }
 
 func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileStreamer, up driver.UpdateProgress) error {
+
 	dstDirActualPath, err := d.getActualPathForRemote(dstDir.GetPath(), true)
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
