@@ -54,11 +54,8 @@ jobs:
             github.com/OpenListTeam/OpenList/v4/internal/conf.Version=$tag
             github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=dev
 
-      - name: Upload assets
-        uses: ncipollo/release-action@v1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-            tag: "${{ github.run_number }}
-            name: "${{ github.run_number }}"
-            body: |
-              spring  ${{ github.run_number }}
-            artifacts: 'build/*'
+          name: openlist_${{ env.SHA }}_${{ matrix.target }}
+          path: build/*
