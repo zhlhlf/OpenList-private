@@ -137,6 +137,10 @@ func (d *Crypt) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([
 		} else {
 			thumb, ok := model.GetThumb(obj)
 			size, err := d.cipher.DecryptedSize(obj.GetSize())
+			// 如果不进行加密文件 读取的大小应该不进行解密
+			if d.NoEncryptedFile {
+				size = obj.GetSize()
+			}
 			if err != nil {
 				//filter illegal files
 				continue
@@ -212,12 +216,17 @@ func (d *Crypt) Get(ctx context.Context, path string) (model.Obj, error) {
 	name := ""
 	if !remoteObj.IsDir() {
 		size, err = d.cipher.DecryptedSize(remoteObj.GetSize())
+		// 如果不进行加密文件 读取的大小应该不进行解密
+		if d.NoEncryptedFile {
+			size = remoteObj.GetSize()
+		}
 		if err != nil {
 			log.Warnf("DecryptedSize failed for %s ,will use original size, err:%s", path, err)
 			size = remoteObj.GetSize()
 		}
-		name, err = d.cipher.DecryptFileName(remoteObj.GetName())
-		name = name + d.EncryptedSuffix
+		originalName := remoteObj.GetName()
+		name, err = d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
+
 		if err != nil {
 			log.Warnf("DecryptFileName failed for %s ,will use original name, err:%s", path, err)
 			name = remoteObj.GetName()
@@ -391,7 +400,7 @@ func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileSt
 		    	ID:       streamer.GetID(),
 		    	Path:     streamer.GetPath(),
 		    	Name:     d.cipher.EncryptFileName(streamer.GetName()) + d.EncryptedSuffix,
-		    	Size:     streamer.GetSize(),
+				Size:     streamer.GetSize(),
 		    	Modified: streamer.ModTime(),
 		    	IsFolder: streamer.IsDir(),
 		    },
