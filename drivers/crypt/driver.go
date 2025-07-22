@@ -270,6 +270,7 @@ func (d *Crypt) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 		return remoteLink, nil
 	}
 
+	
 	rrf, err := stream.GetRangeReaderFromLink(remoteFile.GetSize(), remoteLink)
 	if err != nil {
 		_ = remoteLink.Close()
