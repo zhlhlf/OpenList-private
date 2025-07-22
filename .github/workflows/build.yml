@@ -3,6 +3,7 @@ name: Test Build
 on:
   push:
     branches: ["main"]
+
   workflow_dispatch:
 
 concurrency:
@@ -54,7 +55,10 @@ jobs:
             github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=dev
 
       - name: Upload assets
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          files: build/*
-          prerelease: false
+            tag: "${{ github.run_number }}
+            name: "${{ github.run_number }}"
+            body: |
+              spring  ${{ github.run_number }}
+            artifacts: 'build/*'
