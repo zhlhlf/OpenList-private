@@ -338,7 +338,6 @@ func (d *Crypt) MakeDir(ctx context.Context, parentDir model.Obj, dirName string
 
 func (d *Crypt) Move(ctx context.Context, srcObj, dstDir model.Obj) error {
 	srcRemoteActualPath, err := d.getActualPathForRemote(srcObj.GetPath(), srcObj.IsDir())
-	srcRemoteActualPath += d.EncryptedSuffix
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
@@ -346,12 +345,15 @@ func (d *Crypt) Move(ctx context.Context, srcObj, dstDir model.Obj) error {
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
+	if !srcObj.IsDir() {
+		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
+		dstRemoteActualPath = dstRemoteActualPath + d.EncryptedSuffix
+	}
 	return op.Move(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 }
 
 func (d *Crypt) Rename(ctx context.Context, srcObj model.Obj, newName string) error {
 	remoteActualPath, err := d.getActualPathForRemote(srcObj.GetPath(), srcObj.IsDir())
-	remoteActualPath = remoteActualPath + d.EncryptedSuffix
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
@@ -359,6 +361,7 @@ func (d *Crypt) Rename(ctx context.Context, srcObj model.Obj, newName string) er
 	if srcObj.IsDir() {
 		newEncryptedName = d.cipher.EncryptDirName(newName)
 	} else {
+		remoteActualPath = remoteActualPath + d.EncryptedSuffix
 		newEncryptedName = d.cipher.EncryptFileName(newName) + d.EncryptedSuffix
 	}
 	return op.Rename(ctx, d.remoteStorage, remoteActualPath, newEncryptedName)
@@ -366,13 +369,16 @@ func (d *Crypt) Rename(ctx context.Context, srcObj model.Obj, newName string) er
 
 func (d *Crypt) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 	srcRemoteActualPath, err := d.getActualPathForRemote(srcObj.GetPath(), srcObj.IsDir())
-	srcRemoteActualPath += d.EncryptedSuffix
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
 	dstRemoteActualPath, err := d.getActualPathForRemote(dstDir.GetPath(), dstDir.IsDir())
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
+	}
+	if !srcObj.IsDir() {
+		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
+		dstRemoteActualPath = dstRemoteActualPath + d.EncryptedSuffix
 	}
 	return op.Copy(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 
