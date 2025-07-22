@@ -316,7 +316,6 @@ func (y *Cloud189PC) Remove(ctx context.Context, obj model.Obj) error {
 func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, up driver.UpdateProgress) (newObj model.Obj, err error) {
 	overwrite := true
 	isFamily := y.isFamily()
-	fmt.Println("189pc Put",  stream.GetSize())
 	// 响应时间长,按需启用
 	if y.Addition.RapidUpload && !stream.IsForceStreamUpload() {
 		if newObj, err := y.RapidUpload(ctx, dstDir, stream, isFamily, overwrite); err == nil {
