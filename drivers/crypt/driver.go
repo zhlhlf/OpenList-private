@@ -8,7 +8,6 @@ import (
 	stdpath "path"
 	"strings"
 	"sync"
-
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
 	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
@@ -54,7 +53,6 @@ func (d *Crypt) Init(ctx context.Context) error {
 	}
 
 	d.FileNameEncoding = utils.GetNoneEmpty(d.FileNameEncoding, "base64")
-	d.EncryptedSuffix = utils.GetNoneEmpty(d.EncryptedSuffix)
 
 	op.MustSaveDriverStorage(d)
 
@@ -73,7 +71,6 @@ func (d *Crypt) Init(ctx context.Context) error {
 		"filename_encryption":       d.FileNameEnc,
 		"directory_name_encryption": d.DirNameEnc,
 		"filename_encoding":         d.FileNameEncoding,
-		"suffix":                    d.EncryptedSuffix,
 		"pass_bad_blocks":           "",
 	}
 	c, err := rcCrypt.NewCipher(config)
@@ -117,7 +114,7 @@ func (d *Crypt) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([
 	var result []model.Obj
 	for _, obj := range objs {
 		if obj.IsDir() {
-			name, err := d.cipher.DecryptDirName(obj.GetName())
+			name, err := d.getDecryptedName(obj.GetName())
 			if err != nil {
 				//filter illegal files
 				continue
@@ -147,8 +144,7 @@ func (d *Crypt) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([
 					size = obj.GetSize()
 				}
 			}
-			originalName := obj.GetName()
-			name, err := d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
+			name, err := d.getDecryptedName(obj.GetName())
 			if err != nil {
 				//filter illegal files
 				continue
@@ -228,15 +224,14 @@ func (d *Crypt) Get(ctx context.Context, path string) (model.Obj, error) {
 			}
 		}
 
-		originalName := remoteObj.GetName()
-		name, err = d.cipher.DecryptFileName(originalName[0:len(originalName)-len(d.EncryptedSuffix)])
+		name, err = d.getDecryptedName(remoteObj.GetName())
 
 		if err != nil {
 			log.Warnf("DecryptFileName failed for %s ,will use original name, err:%s", path, err)
 			name = remoteObj.GetName()
 		}
 	} else {
-		name, err = d.cipher.DecryptDirName(remoteObj.GetName())
+		name, err = d.getDecryptedName(remoteObj.GetName())
 		if err != nil {
 			log.Warnf("DecryptDirName failed for %s ,will use original name, err:%s", path, err)
 			name = remoteObj.GetName()
@@ -258,7 +253,6 @@ const fileHeaderSize = 32
 
 func (d *Crypt) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	dstDirActualPath, err := d.getActualPathForRemote(file.GetPath(), false)
-	dstDirActualPath += d.EncryptedSuffix
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
@@ -270,7 +264,6 @@ func (d *Crypt) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (
 		return remoteLink, nil
 	}
 
-	
 	rrf, err := stream.GetRangeReaderFromLink(remoteFile.GetSize(), remoteLink)
 	if err != nil {
 		_ = remoteLink.Close()
@@ -337,7 +330,7 @@ func (d *Crypt) MakeDir(ctx context.Context, parentDir model.Obj, dirName string
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-	dir := d.cipher.EncryptDirName(dirName)
+	dir, err := d.getEncryptedDirName(dirName)
 	return op.MakeDir(ctx, d.remoteStorage, stdpath.Join(dstDirActualPath, dir))
 }
 
@@ -350,9 +343,6 @@ func (d *Crypt) Move(ctx context.Context, srcObj, dstDir model.Obj) error {
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-	if !srcObj.IsDir() {
-		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
-	}
 	return op.Move(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 }
 
@@ -363,10 +353,12 @@ func (d *Crypt) Rename(ctx context.Context, srcObj model.Obj, newName string) er
 	}
 	var newEncryptedName string
 	if srcObj.IsDir() {
-		newEncryptedName = d.cipher.EncryptDirName(newName)
+		newEncryptedName, err = d.getEncryptedDirName(newName)
 	} else {
-		remoteActualPath = remoteActualPath + d.EncryptedSuffix
-		newEncryptedName = d.cipher.EncryptFileName(newName) + d.EncryptedSuffix
+		newEncryptedName, err = d.getEncryptedName(newName)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get encrypted name: %w", err)
 	}
 	return op.Rename(ctx, d.remoteStorage, remoteActualPath, newEncryptedName)
 }
@@ -380,18 +372,12 @@ func (d *Crypt) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-	if !srcObj.IsDir() {
-		srcRemoteActualPath = srcRemoteActualPath + d.EncryptedSuffix
-	}
 	return op.Copy(ctx, d.remoteStorage, srcRemoteActualPath, dstRemoteActualPath)
 
 }
 
 func (d *Crypt) Remove(ctx context.Context, obj model.Obj) error {
 	remoteActualPath, err := d.getActualPathForRemote(obj.GetPath(), obj.IsDir())
-	if !obj.IsDir() {
-		remoteActualPath = remoteActualPath + d.EncryptedSuffix
-	}
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
@@ -404,12 +390,16 @@ func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileSt
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)
 	}
-	if(d.NoEncryptedFile) {
+	name, err := d.getEncryptedName(streamer.GetName())
+	if err != nil {
+		return fmt.Errorf("failed to get encrypted name: %w", err)
+	}
+	if d.NoEncryptedFile {
 		streamOut := &stream.FileStream{
 		    Obj: &model.Object{
 		    	ID:       streamer.GetID(),
 		    	Path:     streamer.GetPath(),
-		    	Name:     d.cipher.EncryptFileName(streamer.GetName()) + d.EncryptedSuffix,
+		    	Name:     name,
 				Size:     streamer.GetSize(),
 		    	Modified: streamer.ModTime(),
 		    	IsFolder: streamer.IsDir(),
@@ -438,7 +428,7 @@ func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileSt
 		Obj: &model.Object{
 			ID:       streamer.GetID(),
 			Path:     streamer.GetPath(),
-			Name:     d.cipher.EncryptFileName(streamer.GetName()) + d.EncryptedSuffix,
+			Name:     name,
 			Size:     d.cipher.EncryptedSize(streamer.GetSize()),
 			Modified: streamer.ModTime(),
 			IsFolder: streamer.IsDir(),

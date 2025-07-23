@@ -4,7 +4,6 @@ import (
 	stdpath "path"
 	"path/filepath"
 	"strings"
-
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 )
 
@@ -28,10 +27,13 @@ func (d *Crypt) getPathForRemote(path string, isFolder bool) (remoteFullPath str
 	}
 	dir, fileName := filepath.Split(path)
 
-	remoteDir := d.cipher.EncryptDirName(dir)
+	remoteDir, err := d.getEncryptedDirName(dir)
 	remoteFileName := ""
 	if len(strings.TrimSpace(fileName)) > 0 {
-		remoteFileName = d.cipher.EncryptFileName(fileName)
+		remoteFileName, err = d.getEncryptedName(fileName)
+	}
+	if err != nil {
+		return stdpath.Join(d.RemotePath, remoteDir, "")
 	}
 	return stdpath.Join(d.RemotePath, remoteDir, remoteFileName)
 
@@ -41,4 +43,26 @@ func (d *Crypt) getPathForRemote(path string, isFolder bool) (remoteFullPath str
 func (d *Crypt) getActualPathForRemote(path string, isFolder bool) (string, error) {
 	_, remoteActualPath, err := op.GetStorageAndActualPath(d.getPathForRemote(path, isFolder))
 	return remoteActualPath, err
+}
+
+// 加密文件名（保留扩展名不变）
+func (d *Crypt) getEncryptedName(filename string) (string, error) {
+    ext := filepath.Ext(filename)
+    base := filename[:len(filename)-len(ext)]
+    encrypted := d.cipher.EncryptFileName(base)
+    return encrypted + ext, nil
+}
+
+// 加密文件夹名（保留扩展名不变）
+func (d *Crypt) getEncryptedDirName(dirName string) (string, error) {
+    encrypted := d.cipher.EncryptDirName(dirName)
+    return encrypted, nil
+}
+
+// 解密文件名（保留扩展名不变）
+func (d *Crypt) getDecryptedName(filename string) (string, error) {
+    ext := filepath.Ext(filename)
+    base := filename[:len(filename)-len(ext)]
+    decrypted,err := d.cipher.DecryptFileName(base)
+    return decrypted + ext, err
 }
