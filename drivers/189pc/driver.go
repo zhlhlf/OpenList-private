@@ -348,7 +348,7 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
-			Name:         fmt.Sprintf("0%s.%s", uuid.NewString(), lastPart),
+			Name:         fmt.Sprintf("00-zhlhlf-00--%s.%s", uuid.NewString(), lastPart),
 		}
 
 		// 使用家庭云上传
@@ -368,15 +368,31 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 					return
 				}
 
-				// 查找转存文件
+				// 循环查找转存文件，最多尝试5次，每次间隔200ms
+				const maxRetries = 5
 				var file *Cloud189File
-				file, err = y.findFileByName(context.TODO(), newObj.GetName(), transferDstDir.GetID(), false)
-				if err != nil {
-					if err == errs.ObjectNotFound {
-						err = fmt.Errorf("unknown error: No transfer file obtained %s", newObj.GetName())
-					}
-					return
+
+				for attempt := 1; attempt <= maxRetries; attempt++ {
+				    if attempt > 1 {
+				        time.Sleep(200 * time.Millisecond) // 等待天翼云盘同步
+				    }
+				
+				    file, err = y.findFileByName(context.TODO(), newObj.GetName(), transferDstDir.GetID(), false)
+				    if err == nil {
+				        break // 找到文件，跳出循环
+				    }
+				
+				    if err != errs.ObjectNotFound {
+				        _ = y.Delete(context.TODO(), "", file) // 尝试删除不完整文件
+				        return
+				    }
+				
+				    // 最后一次尝试失败 退出吧
+				    if attempt == maxRetries {
+				        return
+				    }
 				}
+
 
 				// 重命名转存文件
 				newObj, err = y.Rename(context.TODO(), file, srcName)
