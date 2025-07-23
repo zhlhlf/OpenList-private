@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+    "strconv"
 	stdpath "path"
 	"strings"
 	"sync"
@@ -69,7 +70,7 @@ func (d *Crypt) Init(ctx context.Context) error {
 		"password":                  p,
 		"password2":                 p2,
 		"filename_encryption":       d.FileNameEnc,
-		"directory_name_encryption": d.DirNameEnc,
+		"directory_name_encryption": strconv.FormatBool(d.DirNameEnc),
 		"filename_encoding":         d.FileNameEncoding,
 		"pass_bad_blocks":           "",
 	}
@@ -385,7 +386,7 @@ func (d *Crypt) Remove(ctx context.Context, obj model.Obj) error {
 }
 
 func (d *Crypt) Put(ctx context.Context, dstDir model.Obj, streamer model.FileStreamer, up driver.UpdateProgress) error {
-
+	
 	dstDirActualPath, err := d.getActualPathForRemote(dstDir.GetPath(), true)
 	if err != nil {
 		return fmt.Errorf("failed to convert path to remote path: %w", err)

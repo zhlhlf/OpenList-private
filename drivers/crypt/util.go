@@ -53,13 +53,13 @@ func (d *Crypt) getEncryptedName(filename string) (string, error) {
     return encrypted + ext, nil
 }
 
-// 加密文件夹名（保留扩展名不变）
+// 加密文件夹名
 func (d *Crypt) getEncryptedDirName(dirName string) (string, error) {
     encrypted := d.cipher.EncryptDirName(dirName)
     return encrypted, nil
 }
 
-// 解密文件名（保留扩展名不变）
+// 解密文件名or文件夹名（文件保留扩展名不变）
 func (d *Crypt) getDecryptedName(filename string) (string, error) {
     ext := filepath.Ext(filename)
     base := filename[:len(filename)-len(ext)]
