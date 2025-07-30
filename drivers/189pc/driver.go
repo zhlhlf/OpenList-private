@@ -324,9 +324,6 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 	}
 
 	uploadMethod := y.UploadMethod
-	if stream.IsForceStreamUpload() {
-		uploadMethod = "stream"
-	}
 
 	// 旧版上传家庭云也有限制
 	if uploadMethod == "old" {
@@ -408,12 +405,7 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 	switch uploadMethod {
 		case "rapid":
 			return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-		case "stream":
-			if stream.GetSize() == 0 {
-				return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-			}
-			fallthrough
 		default:
-			return y.StreamUpload(ctx, dstDir, stream, up, isFamily, overwrite)
+			return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
 	}
 }

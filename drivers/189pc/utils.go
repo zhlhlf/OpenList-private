@@ -18,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/OpenListTeam/OpenList/v4/drivers/base"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
@@ -111,7 +109,6 @@ func (y *Cloud189PC) request(url, method string, callback base.ReqCallback, para
 	if err != nil {
 		return nil, err
 	}
-
 	if strings.Contains(res.String(), "userSessionBO is null") {
 		if err = y.refreshSession(); err != nil {
 			return nil, err
@@ -470,124 +467,6 @@ func (y *Cloud189PC) refreshSession() (err error) {
 	return
 }
 
-// 普通上传
-// 无法上传大小为0的文件
-func (y *Cloud189PC) StreamUpload(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress, isFamily bool, overwrite bool) (model.Obj, error) {
-	size := file.GetSize()
-	sliceSize := partSize(size)
-	params := Params{
-		"parentFolderId": dstDir.GetID(),
-		"fileName":       url.QueryEscape(file.GetName()),
-		"fileSize":       fmt.Sprint(file.GetSize()),
-		"sliceSize":      fmt.Sprint(sliceSize),
-		"lazyCheck":      "1",
-	}
-
-	fullUrl := UPLOAD_URL
-	if isFamily {
-		params.Set("familyId", y.FamilyID)
-		fullUrl += "/family"
-	} else {
-		//params.Set("extend", `{"opScene":"1","relativepath":"","rootfolderid":""}`)
-		fullUrl += "/person"
-	}
-
-	// 初始化上传
-	var initMultiUpload InitMultiUploadResp
-	_, err := y.request(fullUrl+"/initMultiUpload", http.MethodGet, func(req *resty.Request) {
-		req.SetContext(ctx)
-	}, params, &initMultiUpload, isFamily)
-	if err != nil {
-		return nil, err
-	}
-
-	threadG, upCtx := errgroup.NewGroupWithContext(ctx, y.uploadThread,
-		retry.Attempts(3),
-		retry.Delay(time.Second),
-		retry.DelayType(retry.BackOffDelay))
-	sem := semaphore.NewWeighted(3)
-
-	count := int(size / sliceSize)
-	lastPartSize := size % sliceSize
-	if lastPartSize > 0 {
-		count++
-	} else {
-		lastPartSize = sliceSize
-	}
-	fileMd5 := utils.MD5.NewFunc()
-	silceMd5 := utils.MD5.NewFunc()
-	silceMd5Hexs := make([]string, 0, count)
-	teeReader := io.TeeReader(file, io.MultiWriter(fileMd5, silceMd5))
-	byteSize := sliceSize
-	for i := 1; i <= count; i++ {
-		if utils.IsCanceled(upCtx) {
-			break
-		}
-		if i == count {
-			byteSize = lastPartSize
-		}
-		byteData := make([]byte, byteSize)
-		// 读取块
-		silceMd5.Reset()
-		if _, err := io.ReadFull(teeReader, byteData); err != io.EOF && err != nil {
-			sem.Release(1)
-			return nil, err
-		}
-
-		// 计算块md5并进行hex和base64编码
-		md5Bytes := silceMd5.Sum(nil)
-		silceMd5Hexs = append(silceMd5Hexs, strings.ToUpper(hex.EncodeToString(md5Bytes)))
-		partInfo := fmt.Sprintf("%d-%s", i, base64.StdEncoding.EncodeToString(md5Bytes))
-
-		threadG.Go(func(ctx context.Context) error {
-			if err = sem.Acquire(ctx, 1); err != nil {
-				return err
-			}
-			defer sem.Release(1)
-			uploadUrls, err := y.GetMultiUploadUrls(ctx, isFamily, initMultiUpload.Data.UploadFileID, partInfo)
-			if err != nil {
-				return err
-			}
-
-			// step.4 上传切片
-			uploadUrl := uploadUrls[0]
-			_, err = y.put(ctx, uploadUrl.RequestURL, uploadUrl.Headers, false,
-				driver.NewLimitedUploadStream(ctx, bytes.NewReader(byteData)), isFamily)
-			if err != nil {
-				return err
-			}
-			up(float64(threadG.Success()) * 100 / float64(count))
-			return nil
-		})
-	}
-	if err = threadG.Wait(); err != nil {
-		return nil, err
-	}
-
-	fileMd5Hex := strings.ToUpper(hex.EncodeToString(fileMd5.Sum(nil)))
-	sliceMd5Hex := fileMd5Hex
-	if file.GetSize() > sliceSize {
-		sliceMd5Hex = strings.ToUpper(utils.GetMD5EncodeStr(strings.Join(silceMd5Hexs, "\n")))
-	}
-
-	// 提交上传
-	var resp CommitMultiUploadFileResp
-	_, err = y.request(fullUrl+"/commitMultiUploadFile", http.MethodGet,
-		func(req *resty.Request) {
-			req.SetContext(ctx)
-		}, Params{
-			"uploadFileId": initMultiUpload.Data.UploadFileID,
-			"fileMd5":      fileMd5Hex,
-			"sliceMd5":     sliceMd5Hex,
-			"lazyCheck":    "1",
-			"isLog":        "0",
-			"opertype":     IF(overwrite, "3", "1"),
-		}, &resp, isFamily)
-	if err != nil {
-		return nil, err
-	}
-	return resp.toFile(), nil
-}
 
 func (y *Cloud189PC) RapidUpload(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, isFamily bool, overwrite bool) (model.Obj, error) {
 	fileMd5 := stream.GetHash().GetHash(utils.MD5)
@@ -923,7 +802,6 @@ func (y *Cloud189PC) OldUploadCreate(ctx context.Context, parentID string, fileM
 			})
 		}
 	}, &uploadInfo, isFamily)
-
 	if err != nil {
 		return nil, err
 	}
@@ -1066,15 +944,6 @@ func (y *Cloud189PC) getFamilyID() (string, error) {
 
 // 保存家庭云中的文件到个人云
 func (y *Cloud189PC) SaveFamilyFileToPersonCloud(ctx context.Context, familyId string, srcObj, dstDir model.Obj, overwrite bool) error {
-	// _, err := y.post(API_URL+"/family/file/saveFileToMember.action", func(req *resty.Request) {
-	// 	req.SetQueryParams(map[string]string{
-	// 		"channelId":    "home",
-	// 		"familyId":     familyId,
-	// 		"destParentId": destParentId,
-	// 		"fileIdList":   familyFileId,
-	// 	})
-	// }, nil)
-	// return err
 
 	task := BatchTaskInfo{
 		FileId:   srcObj.GetID(),
