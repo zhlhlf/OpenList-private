@@ -130,6 +130,9 @@ func initStorage(ctx context.Context, storage model.Storage, storageDriver drive
 			}
 		}
 	}
+	if(storage.Disabled) {
+		return nil
+	}
 	if err == nil {
 		err = storageDriver.Init(ctx)
 	}
