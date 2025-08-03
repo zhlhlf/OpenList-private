@@ -123,7 +123,6 @@ func (y *Cloud189PC) request(url, method string, callback base.ReqCallback, para
 		}
 		return y.request(url, method, callback, params, resp, isFamily...)
 	}
-
 	// 处理错误
 	if erron.HasError() {
 		return nil, &erron
@@ -468,24 +467,6 @@ func (y *Cloud189PC) refreshSession() (err error) {
 }
 
 
-func (y *Cloud189PC) RapidUpload(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, isFamily bool, overwrite bool) (model.Obj, error) {
-	fileMd5 := stream.GetHash().GetHash(utils.MD5)
-	if len(fileMd5) < utils.MD5.Width {
-		return nil, errors.New("invalid hash")
-	}
-
-	uploadInfo, err := y.OldUploadCreate(ctx, dstDir.GetID(), fileMd5, stream.GetName(), fmt.Sprint(stream.GetSize()), isFamily)
-	if err != nil {
-		return nil, err
-	}
-
-	if uploadInfo.FileDataExists != 1 {
-		return nil, errors.New("rapid upload fail")
-	}
-
-	return y.OldUploadCommit(ctx, uploadInfo.FileCommitUrl, uploadInfo.UploadFileId, isFamily, overwrite)
-}
-
 // 快传
 func (y *Cloud189PC) FastUpload(ctx context.Context, dstDir model.Obj, file model.FileStreamer, up driver.UpdateProgress, isFamily bool, overwrite bool) (model.Obj, error) {
 	var (
@@ -513,7 +494,6 @@ func (y *Cloud189PC) FastUpload(ctx context.Context, dstDir model.Obj, file mode
 	} else {
 		lastSliceSize = sliceSize
 	}
-
 	//step.1 优先计算所需信息
 	byteSize := sliceSize
 	fileMd5 := utils.MD5.NewFunc()
@@ -560,7 +540,6 @@ func (y *Cloud189PC) FastUpload(ctx context.Context, dstDir model.Obj, file mode
 	if size > sliceSize {
 		sliceMd5Hex = strings.ToUpper(utils.GetMD5EncodeStr(strings.Join(sliceMd5Hexs, "\n")))
 	}
-
 	fullUrl := UPLOAD_URL
 	if isFamily {
 		fullUrl += "/family"
