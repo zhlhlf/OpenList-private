@@ -307,7 +307,6 @@ func (y *Cloud189PC) Remove(ctx context.Context, obj model.Obj) error {
 func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, up driver.UpdateProgress) (newObj model.Obj, err error) {
 	overwrite := !y.storageConfig.NoOverwriteUpload
 	isFamily := y.isFamily()
-
 	uploadMethod := y.UploadMethod
 	// 旧版上传家庭云也有限制
 	if uploadMethod == "old" {
@@ -326,7 +325,7 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 		if len(parts) == 1 {
 			lastPart = "zhlhlf" // 兜底
 		}
-
+		fmt.Println("srcName:", srcName, "lastPart:", lastPart)
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
 			Name:         fmt.Sprintf("00-zhlhlf-00--%s.%s", uuid.NewString(), lastPart),
