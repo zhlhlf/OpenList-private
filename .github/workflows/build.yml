@@ -60,6 +60,8 @@ jobs:
           name: openlist_${{ env.SHA }}_${{ matrix.target }}
           path: build/*
 
+      - name: release-msg
+        run: echo openlist_${{ env.SHA }}_${{ matrix.target }} > Release.txt
 
       - name: Upload assets
         uses: softprops/action-gh-release@v2
