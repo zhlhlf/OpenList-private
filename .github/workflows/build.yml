@@ -59,3 +59,15 @@ jobs:
         with:
           name: openlist_${{ env.SHA }}_${{ matrix.target }}
           path: build/*
+
+      - name: 上传到release
+        uses: ncipollo/release-action@v1
+        with:
+            tag: "${{ github.sha:0:7 }}"
+            name: "${{ github.sha:0:7 }}"
+            body: |
+                source : ${{ inputs.KERNEL_SOURCE }}
+                Last commit SHA: ${{ github.sha }}
+                Commit message: ${{ github.event.head_commit.message }}
+            artifacts: 'build/*'
+        
