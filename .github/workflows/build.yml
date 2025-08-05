@@ -63,8 +63,8 @@ jobs:
       - name: 上传到release
         uses: ncipollo/release-action@v1
         with:
-            tag: "${{ github.sha:0:7 }}"
-            name: "${{ github.sha:0:7 }}"
+            tag: "${{ github.sha }}"
+            name: "${{ github.sha }}"
             body: |
                 source : ${{ inputs.KERNEL_SOURCE }}
                 Last commit SHA: ${{ github.sha }}
