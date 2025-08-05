@@ -325,7 +325,6 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 		if len(parts) == 1 {
 			lastPart = "zhlhlf" // 兜底
 		}
-		fmt.Println("srcName:", srcName, "lastPart:", lastPart)
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
 			Name:         fmt.Sprintf("00-zhlhlf-00--%s.%s", uuid.NewString(), lastPart),
