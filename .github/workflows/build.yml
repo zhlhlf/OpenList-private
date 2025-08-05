@@ -60,14 +60,9 @@ jobs:
           name: openlist_${{ env.SHA }}_${{ matrix.target }}
           path: build/*
 
-      - name: 上传到release
-        uses: ncipollo/release-action@v1
+
+      - name: Upload assets
+        uses: softprops/action-gh-release@v2
         with:
-            tag: "${{ github.sha }}"
-            name: "${{ github.sha }}"
-            body: |
-                source : ${{ inputs.KERNEL_SOURCE }}
-                Last commit SHA: ${{ github.sha }}
-                Commit message: ${{ github.event.head_commit.message }}
-            artifacts: 'build/*'
-        
+          files: build/*
+          prerelease: false
