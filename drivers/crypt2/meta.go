@@ -1,4 +1,4 @@
-package crypt
+package crypt2
 
 import (
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
@@ -25,7 +25,7 @@ type Addition struct {
 }
 
 var config = driver.Config{
-	Name:        "Crypt",
+	Name:        "Crypt2",
 	LocalSort:   true,
 	OnlyProxy:   false,
 	NoCache:     true,

@@ -1,4 +1,4 @@
-package crypt
+package crypt2
 
 import (
 	"bytes"
