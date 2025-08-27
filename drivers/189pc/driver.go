@@ -50,17 +50,9 @@ func (y *Cloud189PC) GetAddition() driver.Additional {
 
 func (y *Cloud189PC) Init(ctx context.Context) (err error) {
 	y.storageConfig = config
-	if y.isFamily() {
-		// 兼容旧上传接口
-		if y.Addition.RapidUpload || y.Addition.UploadMethod == "old" {
-			y.storageConfig.NoOverwriteUpload = true
-		}
-	} else {
-		// 家庭云转存，不支持覆盖上传
-		if y.Addition.FamilyTransfer {
-			y.storageConfig.NoOverwriteUpload = true
-		}
-	}
+	//不覆盖上传
+	y.storageConfig.NoOverwriteUpload = true
+
 	// 处理个人云和家庭云参数
 	if y.isFamily() && y.RootFolderID == "-11" {
 		y.RootFolderID = ""
@@ -175,7 +167,6 @@ func (y *Cloud189PC) Link(ctx context.Context, file model.Obj, args model.LinkAr
 	if res.StatusCode() == 302 {
 		downloadUrl.URL = res.Header().Get("location")
 	}
-
 	like := &model.Link{
 		URL: downloadUrl.URL,
 		Header: http.Header{
@@ -314,37 +305,29 @@ func (y *Cloud189PC) Remove(ctx context.Context, obj model.Obj) error {
 }
 
 func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.FileStreamer, up driver.UpdateProgress) (newObj model.Obj, err error) {
-	overwrite := true
+	overwrite := !y.storageConfig.NoOverwriteUpload
 	isFamily := y.isFamily()
-
-	// 响应时间长,按需启用
-	if y.Addition.RapidUpload && !stream.IsForceStreamUpload() {
-		if newObj, err := y.RapidUpload(ctx, dstDir, stream, isFamily, overwrite); err == nil {
-			return newObj, nil
-		}
-	}
-
 	uploadMethod := y.UploadMethod
-	if stream.IsForceStreamUpload() {
-		uploadMethod = "stream"
-	}
-
 	// 旧版上传家庭云也有限制
 	if uploadMethod == "old" {
 		return y.OldUpload(ctx, dstDir, stream, up, isFamily, overwrite)
 	}
-
 	// 开启家庭云转存
 	if !isFamily && y.FamilyTransfer {
 		// 修改上传目标为家庭云文件夹
 		transferDstDir := dstDir
 		dstDir = y.familyTransferFolder
 
-		// 使用临时文件名
+		// 使用临时文件名 不然一些特殊名字转存不了
 		srcName := stream.GetName()
+		parts := strings.Split(srcName, ".")
+		lastPart := parts[len(parts)-1]
+		if len(parts) == 1 {
+			lastPart = "zhlhlf" // 兜底
+		}
 		stream = &WrapFileStreamer{
 			FileStreamer: stream,
-			Name:         fmt.Sprintf("0%s.transfer", uuid.NewString()),
+			Name:         fmt.Sprintf("00-zhlhlf-00--%s.%s", uuid.NewString(), lastPart),
 		}
 
 		// 使用家庭云上传
@@ -364,15 +347,31 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 					return
 				}
 
-				// 查找转存文件
+				// 循环查找转存文件，最多尝试5次，每次间隔200ms
+				const maxRetries = 5
 				var file *Cloud189File
-				file, err = y.findFileByName(context.TODO(), newObj.GetName(), transferDstDir.GetID(), false)
-				if err != nil {
-					if err == errs.ObjectNotFound {
-						err = fmt.Errorf("unknown error: No transfer file obtained %s", newObj.GetName())
-					}
-					return
+
+				for attempt := 1; attempt <= maxRetries; attempt++ {
+				    if attempt > 1 {
+				        time.Sleep(200 * time.Millisecond) // 等待天翼云盘同步
+				    }
+				
+				    file, err = y.findFileByName(context.TODO(), newObj.GetName(), transferDstDir.GetID(), false)
+				    if err == nil {
+				        break // 找到文件，跳出循环
+				    }
+				
+				    if err != errs.ObjectNotFound {
+				        _ = y.Delete(context.TODO(), "", file) // 尝试删除不完整文件
+				        return
+				    }
+				
+				    // 最后一次尝试失败 退出吧
+				    if attempt == maxRetries {
+				        return
+				    }
 				}
+
 
 				// 重命名转存文件
 				newObj, err = y.Rename(context.TODO(), file, srcName)
@@ -386,14 +385,9 @@ func (y *Cloud189PC) Put(ctx context.Context, dstDir model.Obj, stream model.Fil
 	}
 
 	switch uploadMethod {
-	case "rapid":
-		return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-	case "stream":
-		if stream.GetSize() == 0 {
+		case "rapid":
 			return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
-		}
-		fallthrough
-	default:
-		return y.StreamUpload(ctx, dstDir, stream, up, isFamily, overwrite)
+		default:
+			return y.FastUpload(ctx, dstDir, stream, up, isFamily, overwrite)
 	}
 }
